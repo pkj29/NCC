@@ -10,6 +10,17 @@ let parcelData = [];
 // URL of the hosted CSV file
 const csvUrl = "https://dakshinakashi.com/NCC_data.csv";
 
+// Function to normalize addresses
+function normalizeAddress(address) {
+  return address
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ") // Replace multiple spaces with a single space
+    .replace(/ ROAD$/, " RD")
+    .replace(/ STREET$/, " ST")
+    .replace(/ AVENUE$/, " AVE");
+}
+
 // Function to fetch and load CSV data
 function loadCSV() {
   console.log("Fetching CSV from URL:", csvUrl);
@@ -24,7 +35,9 @@ function loadCSV() {
       .pipe(csv())
       .on("data", (row) => {
         if (row.ADDRESS && row.ADDRESS.trim() && row.PRCLKEY) {
-          parcelData.push(row); // Store rows that have valid ADDRESS and PRCLKEY
+          // Normalize the address and add to parcelData
+          row.ADDRESS = normalizeAddress(row.ADDRESS);
+          parcelData.push(row);
         }
       })
       .on("end", () => {
@@ -41,9 +54,14 @@ function loadCSV() {
 // Load the CSV data when the server starts
 loadCSV();
 
+// Root route to verify the server is running
+app.get("/", (req, res) => {
+  res.send("Welcome to the Parcel Key API!");
+});
+
 // API endpoint to search for a parcel key
 app.get("/get-parcel-key", (req, res) => {
-  const inputAddress = (req.query.address || "").trim().toUpperCase();
+  const inputAddress = normalizeAddress(req.query.address || "");
 
   if (!inputAddress) {
     return res.status(400).json({ error: "Address is required" });
@@ -52,7 +70,7 @@ app.get("/get-parcel-key", (req, res) => {
   console.log("Searching for input address:", inputAddress);
 
   // Find an exact match
-  const match = parcelData.find((row) => row.ADDRESS.trim() === inputAddress);
+  const match = parcelData.find((row) => row.ADDRESS === inputAddress);
 
   if (match) {
     res.json({ parcel_key: match.PRCLKEY });
